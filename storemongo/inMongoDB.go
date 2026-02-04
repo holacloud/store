@@ -1,23 +1,24 @@
-package persistence
+package storemongo
 
 import (
 	"context"
 	"time"
 
+	"github.com/holacloud/store"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
-type InMongoDB[T Identifier] struct {
+type StoreMongo[T store.Identifier] struct {
 	collectionName string
 	connection     string
 	client         *mongo.Client
 	database       *mongo.Database
 }
 
-func NewInMongoDB[T Identifier](collectionName, connection string) (*InMongoDB[T], error) {
+func New[T store.Identifier](collectionName, connection string) (*StoreMongo[T], error) {
 
 	cs, err := connstring.ParseAndValidate(connection)
 	if err != nil {
@@ -46,7 +47,7 @@ func NewInMongoDB[T Identifier](collectionName, connection string) (*InMongoDB[T
 		return nil, err
 	}
 
-	return &InMongoDB[T]{
+	return &StoreMongo[T]{
 		collectionName: collectionName,
 		connection:     connection,
 		client:         client, // might not be needed
@@ -54,7 +55,7 @@ func NewInMongoDB[T Identifier](collectionName, connection string) (*InMongoDB[T
 	}, nil
 }
 
-func (f *InMongoDB[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreMongo[T]) List(ctx context.Context) ([]*T, error) {
 
 	cur, err := f.database.Collection(f.collectionName).Find(ctx, bson.M{})
 	if err != nil {
@@ -76,7 +77,7 @@ func (f *InMongoDB[T]) List(ctx context.Context) ([]*T, error) {
 	return result, nil
 }
 
-func (f *InMongoDB[T]) Put(ctx context.Context, item *T) error {
+func (f *StoreMongo[T]) Put(ctx context.Context, item *T) error {
 	filter := bson.M{
 		"_id": (*item).GetId(),
 	}
@@ -93,7 +94,7 @@ func (f *InMongoDB[T]) Put(ctx context.Context, item *T) error {
 	result, err := f.database.Collection(f.collectionName).UpdateOne(ctx, filter, update, options.Update().SetUpsert(true))
 
 	if mongo.IsDuplicateKeyError(err) {
-		return ErrVersionGone
+		return store.ErrVersionGone
 	}
 
 	if err != nil {
@@ -101,13 +102,13 @@ func (f *InMongoDB[T]) Put(ctx context.Context, item *T) error {
 	}
 
 	if result.MatchedCount == 0 && result.UpsertedCount == 0 {
-		return ErrVersionGone
+		return store.ErrVersionGone
 	}
 
 	return nil
 }
 
-func (f *InMongoDB[T]) Get(ctx context.Context, id string) (*T, error) {
+func (f *StoreMongo[T]) Get(ctx context.Context, id string) (*T, error) {
 	var result *T
 	err := f.database.Collection(f.collectionName).FindOne(ctx, bson.M{"_id": id}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
@@ -116,7 +117,7 @@ func (f *InMongoDB[T]) Get(ctx context.Context, id string) (*T, error) {
 	return result, err
 }
 
-func (f *InMongoDB[T]) Delete(ctx context.Context, id string) error {
+func (f *StoreMongo[T]) Delete(ctx context.Context, id string) error {
 	_, err := f.database.Collection(f.collectionName).DeleteOne(ctx, bson.M{"_id": id})
 	return err
 }

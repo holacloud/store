@@ -1,4 +1,4 @@
-module spikepersistence
+module github.com/holacloud/store
 
 go 1.22.3
 

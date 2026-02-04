@@ -1,4 +1,4 @@
-package persistence
+package storeinception
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/holacloud/store"
 )
 
 type ConfigInceptionDB struct {
@@ -18,16 +20,16 @@ type ConfigInceptionDB struct {
 	ApiSecret  string `json:"api_secret"`
 }
 
-type InInceptionDB[T Identifier] struct {
+type StoreInception[T store.Identifier] struct {
 	config     *ConfigInceptionDB
 	httpClient *http.Client
 }
 
-func NewInInceptionDB[T Identifier](config *ConfigInceptionDB) *InInceptionDB[T] {
+func New[T store.Identifier](config *ConfigInceptionDB) *StoreInception[T] {
 	if config.Collection == "" {
 		config.Collection = "items"
 	}
-	result := &InInceptionDB[T]{
+	result := &StoreInception[T]{
 		config: config,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
@@ -56,7 +58,7 @@ type FindQuery struct {
 	Reverse bool                   `json:"reverse,omitempty"`
 }
 
-func (p *InInceptionDB[T]) List(ctx context.Context) ([]*T, error) {
+func (p *StoreInception[T]) List(ctx context.Context) ([]*T, error) {
 	query := FindQuery{
 		Filter: map[string]interface{}{},
 		Limit:  -1,
@@ -101,7 +103,7 @@ func (p *InInceptionDB[T]) List(ctx context.Context) ([]*T, error) {
 	return items, nil
 }
 
-func (p *InInceptionDB[T]) Put(ctx context.Context, item *T) error {
+func (p *StoreInception[T]) Put(ctx context.Context, item *T) error {
 
 	// TODO: copy? remarshal?
 
@@ -175,7 +177,7 @@ func (p *InInceptionDB[T]) Put(ctx context.Context, item *T) error {
 
 	err = json.NewDecoder(resp.Body).Decode(&item)
 	if err == io.EOF {
-		return ErrVersionGone
+		return store.ErrVersionGone
 	}
 	if err != nil {
 		return err
@@ -188,7 +190,7 @@ func (p *InInceptionDB[T]) Put(ctx context.Context, item *T) error {
 	return nil
 }
 
-func (p *InInceptionDB[T]) Get(ctx context.Context, id string) (*T, error) {
+func (p *StoreInception[T]) Get(ctx context.Context, id string) (*T, error) {
 	query := FindQuery{
 		Filter: map[string]interface{}{
 			"id": id,
@@ -230,7 +232,7 @@ func (p *InInceptionDB[T]) Get(ctx context.Context, id string) (*T, error) {
 	return item, nil
 }
 
-func (p *InInceptionDB[T]) Delete(ctx context.Context, id string) error {
+func (p *StoreInception[T]) Delete(ctx context.Context, id string) error {
 	query := FindQuery{
 		Filter: map[string]interface{}{
 			"id": id,
@@ -261,7 +263,7 @@ func (p *InInceptionDB[T]) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (p *InInceptionDB[T]) ensureCollection() error {
+func (p *StoreInception[T]) ensureCollection() error {
 	endpoint := p.config.Base + "/collections"
 
 	payload, err := json.Marshal(map[string]interface{}{
@@ -292,7 +294,7 @@ func (p *InInceptionDB[T]) ensureCollection() error {
 	return resp.Body.Close()
 }
 
-func (p *InInceptionDB[T]) dropCollection() error {
+func (p *StoreInception[T]) dropCollection() error {
 	endpoint := p.config.Base + "/collections/" + url.PathEscape(p.config.Collection) + ":dropCollection"
 
 	req, err := http.NewRequest("POST", endpoint, nil)

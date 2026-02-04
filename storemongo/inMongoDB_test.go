@@ -1,4 +1,4 @@
-package persistence
+package storemongo
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/fulldump/biff"
 	"github.com/google/uuid"
+	"github.com/holacloud/store/testutils"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -51,9 +52,9 @@ func TestMongodb(t *testing.T) {
 	connection += "/" + dbname
 	t.Logf("Using connection: '%s'", connection)
 
-	p, err := NewInMongoDB[TestItem]("test_items", connection)
+	p, err := New[testutils.TestItem]("test_items", connection)
 	biff.AssertNil(err)
 
-	SuitePersistencer(p, t)
-	SuiteOptimisticLocking(p, t)
+	testutils.SuitePersistencer(p, t)
+	testutils.SuiteOptimisticLocking(p, t)
 }

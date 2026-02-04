@@ -1,4 +1,4 @@
-package persistence
+package storepostgres
 
 import (
 	"context"
@@ -6,16 +6,17 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/holacloud/store"
 	_ "github.com/lib/pq"
 )
 
-type InPostgres[T Identifier] struct {
+type StorePostgres[T store.Identifier] struct {
 	table      string
 	connection string
 	db         *sql.DB
 }
 
-func NewInPostgres[T Identifier](table, connection string) (*InPostgres[T], error) {
+func New[T store.Identifier](table, connection string) (*StorePostgres[T], error) {
 
 	db, err := sql.Open("postgres", connection)
 	if err != nil {
@@ -65,7 +66,7 @@ func NewInPostgres[T Identifier](table, connection string) (*InPostgres[T], erro
 		return nil, err // could not create database
 	}
 
-	return &InPostgres[T]{
+	return &StorePostgres[T]{
 		table:      table,
 		db:         db,
 		connection: connection,
@@ -99,7 +100,7 @@ func parseConnection(connection string) map[string]string {
 	return result
 }
 
-func (f *InPostgres[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StorePostgres[T]) List(ctx context.Context) ([]*T, error) {
 
 	rows, err := f.db.QueryContext(ctx, `SELECT id, record, version FROM "`+f.table+`";`)
 	if err != nil {
@@ -128,7 +129,7 @@ func (f *InPostgres[T]) List(ctx context.Context) ([]*T, error) {
 	return result, nil
 }
 
-func (f *InPostgres[T]) Put(ctx context.Context, item *T) error {
+func (f *StorePostgres[T]) Put(ctx context.Context, item *T) error {
 
 	itemJson, err := json.Marshal(item)
 	if err != nil {
@@ -150,7 +151,7 @@ func (f *InPostgres[T]) Put(ctx context.Context, item *T) error {
 		return err
 	}
 	if n == 0 {
-		return ErrVersionGone
+		return store.ErrVersionGone
 	}
 
 	(*item).SetVersion(itemVersion + 1)
@@ -158,7 +159,7 @@ func (f *InPostgres[T]) Put(ctx context.Context, item *T) error {
 	return nil
 }
 
-func (f *InPostgres[T]) Get(ctx context.Context, id string) (*T, error) {
+func (f *StorePostgres[T]) Get(ctx context.Context, id string) (*T, error) {
 
 	row := f.db.QueryRowContext(ctx, `
 		SELECT  record, version FROM "`+f.table+`" WHERE id = $1;
@@ -184,7 +185,7 @@ func (f *InPostgres[T]) Get(ctx context.Context, id string) (*T, error) {
 	return item, nil
 }
 
-func (f *InPostgres[T]) Delete(ctx context.Context, id string) error {
+func (f *StorePostgres[T]) Delete(ctx context.Context, id string) error {
 
 	_, err := f.db.ExecContext(ctx, `
 		DELETE FROM "`+f.table+`" 

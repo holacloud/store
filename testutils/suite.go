@@ -1,4 +1,4 @@
-package persistence
+package testutils
 
 import (
 	"context"
@@ -10,24 +10,23 @@ import (
 	"time"
 
 	. "github.com/fulldump/biff"
+	"github.com/holacloud/store"
 )
 
 type TestItem struct {
-	*Id         `bson:",inline"`
+	*store.Id   `bson:",inline"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
 	Subitems    []*SubItem `json:"subitems"`
 	Counter     int        `json:"counter"`
 }
 
-var _ Identifier = TestItem{}
-
 type SubItem struct {
 	Field1 string `json:"field1"`
 	Field2 string `json:"field2"`
 }
 
-func SuitePersistencer(p Persistencer[TestItem], t *testing.T) {
+func SuitePersistencer(p store.Storer[TestItem], t *testing.T) {
 
 	ctx := context.Background()
 
@@ -38,7 +37,7 @@ func SuitePersistencer(p Persistencer[TestItem], t *testing.T) {
 	})
 
 	item1 := &TestItem{
-		Id:    NewId("1"),
+		Id:    store.NewId("1"),
 		Title: "Title 1",
 	}
 
@@ -78,7 +77,7 @@ func SuitePersistencer(p Persistencer[TestItem], t *testing.T) {
 	})
 
 	item2 := &TestItem{
-		Id:    NewId("2"),
+		Id:    store.NewId("2"),
 		Title: "Title 2",
 	}
 
@@ -122,7 +121,7 @@ func SuitePersistencer(p Persistencer[TestItem], t *testing.T) {
 			id := fmt.Sprintf("item-%d", i)
 
 			p.Put(ctx, &TestItem{
-				Id:    NewId(id),
+				Id:    store.NewId(id),
 				Title: id,
 			})
 
@@ -137,14 +136,14 @@ func SuitePersistencer(p Persistencer[TestItem], t *testing.T) {
 
 }
 
-func SuiteOptimisticLocking(p Persistencer[TestItem], t *testing.T) {
+func SuiteOptimisticLocking(p store.Storer[TestItem], t *testing.T) {
 
 	ctx := context.Background()
 
 	t.Run("Concurrency - optimistic", func(t *testing.T) {
 
 		err := p.Put(ctx, &TestItem{
-			Id:      NewId("1"),
+			Id:      store.NewId("1"),
 			Title:   "Title 1",
 			Counter: 0,
 		})
@@ -173,7 +172,7 @@ func SuiteOptimisticLocking(p Persistencer[TestItem], t *testing.T) {
 		w := &sync.WaitGroup{}
 
 		err := p.Put(ctx, &TestItem{
-			Id:      NewId("optimistic-2"),
+			Id:      store.NewId("optimistic-2"),
 			Title:   "Title 1",
 			Counter: 0,
 		})
@@ -192,7 +191,7 @@ func SuiteOptimisticLocking(p Persistencer[TestItem], t *testing.T) {
 					item.Counter++
 
 					errPut := p.Put(ctx, item)
-					if errPut == ErrVersionGone {
+					if errPut == store.ErrVersionGone {
 						atomic.AddInt32(&collisions, 1)
 						time.Sleep(time.Duration(rand.IntN(workers)) * time.Millisecond)
 						continue

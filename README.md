@@ -1,4 +1,4 @@
-# Persistence
+# Store
 
 This is a spike project to implement an effective way to actually abstract the
 persistence layer of the same entities in different and quite heterogeneous 

@@ -1,4 +1,4 @@
-package persistence
+package store
 
 import (
 	"context"
@@ -6,18 +6,18 @@ import (
 	"sync"
 )
 
-type InMemory[T Identifier] struct {
+type StoreMemory[T Identifier] struct {
 	Items map[string]*T
 	mutex sync.RWMutex
 }
 
-func NewInMemory[T Identifier]() *InMemory[T] {
-	return &InMemory[T]{
+func NewStoreMemory[T Identifier]() *StoreMemory[T] {
+	return &StoreMemory[T]{
 		Items: map[string]*T{},
 	}
 }
 
-func (f *InMemory[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreMemory[T]) List(ctx context.Context) ([]*T, error) {
 
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
@@ -33,7 +33,7 @@ func (f *InMemory[T]) List(ctx context.Context) ([]*T, error) {
 	return result, nil
 }
 
-func (f *InMemory[T]) Put(ctx context.Context, item *T) error {
+func (f *StoreMemory[T]) Put(ctx context.Context, item *T) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -48,7 +48,7 @@ func (f *InMemory[T]) Put(ctx context.Context, item *T) error {
 	return nil
 }
 
-func (f *InMemory[T]) Get(ctx context.Context, id string) (*T, error) {
+func (f *StoreMemory[T]) Get(ctx context.Context, id string) (*T, error) {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
 
@@ -69,7 +69,7 @@ func remarshal(in, out any) {
 	_ = json.Unmarshal(b, &out)
 }
 
-func (f *InMemory[T]) Delete(ctx context.Context, id string) error {
+func (f *StoreMemory[T]) Delete(ctx context.Context, id string) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 

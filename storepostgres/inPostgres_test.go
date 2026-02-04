@@ -1,4 +1,4 @@
-package persistence
+package storepostgres
 
 import (
 	"database/sql"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fulldump/biff"
+	"github.com/holacloud/store/testutils"
 )
 
 func TestInPostgres(t *testing.T) {
@@ -34,9 +35,9 @@ func TestInPostgres(t *testing.T) {
 
 	dbname := "test" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	p, err := NewInPostgres[TestItem]("mytable", "host="+host+" port=5432 user=postgres password=mysecretpassword dbname="+dbname+" sslmode=disable")
+	p, err := New[testutils.TestItem]("mytable", "host="+host+" port=5432 user=postgres password=mysecretpassword dbname="+dbname+" sslmode=disable")
 	biff.AssertNil(err)
 
-	SuitePersistencer(p, t)
-	SuiteOptimisticLocking(p, t)
+	testutils.SuitePersistencer(p, t)
+	testutils.SuiteOptimisticLocking(p, t)
 }
