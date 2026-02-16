@@ -2,7 +2,6 @@ package store_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/fulldump/biff"
@@ -12,8 +11,10 @@ import (
 
 func TestStoreDisk(t *testing.T) {
 
-	p, err := store.NewStoreDisk[testutils.TestItem](t.TempDir())
+	disk, err := store.NewStoreDisk[testutils.TestItem](t.TempDir())
+	biff.AssertNil(err)
 
+	p, err := store.NewStoreCached[testutils.TestItem](disk, nil)
 	biff.AssertNil(err)
 
 	testutils.SuitePersistencer(p, t)
@@ -32,13 +33,20 @@ func TestStoreDisk_Load(t *testing.T) {
 	})
 	biff.AssertNil(err)
 
-	p2, err := store.NewStoreDisk[testutils.TestItem](dir)
+	// Test loading from disk into a new StoreCached
+	disk2, err := store.NewStoreDisk[testutils.TestItem](dir)
 	biff.AssertNil(err)
-	_ = p2
+
+	p2, err := store.NewStoreCached[testutils.TestItem](disk2, nil)
+	biff.AssertNil(err)
 
 	result, err := p2.List(context.Background())
 	biff.AssertNil(err)
-	fmt.Println(result)
+	// fmt.Println(result) // remove print
+
+	// Verify item is in the list
+	biff.AssertEqual(len(result), 1)
+	biff.AssertEqual(result[0].Title, "test")
 
 	item, err := p2.Get(context.Background(), "33")
 	biff.AssertNil(err)

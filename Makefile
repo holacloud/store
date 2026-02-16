@@ -1,7 +1,7 @@
 
 .PHONY: test
 test:
-	go test -count=1 -cover ./...
+	go test -count=1 -cover -race ./...
 
 .PHONY: deps
 deps:
