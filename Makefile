@@ -1,7 +1,7 @@
 
 .PHONY: test
 test:
-	go test -cover ./...
+	go test -count=1 -cover ./...
 
 .PHONY: deps
 deps:
@@ -10,4 +10,4 @@ deps:
 
 .PHONY: docker-%
 docker-%:
-	docker-compose run -p 8080:8080 --use-aliases --rm app make $*
+	docker-compose run --use-aliases --rm app make $*

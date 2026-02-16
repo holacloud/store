@@ -4,30 +4,44 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 )
 
+type node[T any] struct {
+	item atomic.Pointer[T]
+	next atomic.Pointer[node[T]]
+}
+
 type StoreMemory[T Identifier] struct {
-	Items map[string]*T
-	mutex sync.RWMutex
+	// head uses atomic.Pointer to ensure memory visibility and ordering.
+	// While a pointer assignment on 64-bit systems is atomic in terms of machine instructions (no torn writes),
+	// the Go Memory Model does not guarantee that other goroutines will see the updated value instantly
+	// or in the correct order without synchronization primitives (like atomic or mutex).
+	// atomic.Pointer provides the necessary "happens-before" edges to ensure that initialization of the node
+	// happens before the head pointer is visible to readers.
+	head  atomic.Pointer[node[T]]
+	mutex sync.Mutex
 }
 
 func NewStoreMemory[T Identifier]() *StoreMemory[T] {
-	return &StoreMemory[T]{
-		Items: map[string]*T{},
-	}
+	return &StoreMemory[T]{}
 }
 
 func (f *StoreMemory[T]) List(ctx context.Context) ([]*T, error) {
+	// No lock needed for readers
+	var result []*T
 
-	f.mutex.RLock()
-	defer f.mutex.RUnlock()
+	current := f.head.Load()
+	for current != nil {
+		// safe copy
+		itemPtr := current.item.Load()
+		if itemPtr != nil { // Should be non-nil generally
+			var newItem *T
+			remarshal(itemPtr, &newItem)
+			result = append(result, newItem)
+		}
 
-	result := make([]*T, len(f.Items))
-
-	i := -1
-	for _, item := range f.Items {
-		i++
-		result[i], _ = f.Get(ctx, (*item).GetId())
+		current = current.next.Load()
 	}
 
 	return result, nil
@@ -37,31 +51,55 @@ func (f *StoreMemory[T]) Put(ctx context.Context, item *T) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if oldItem, ok := f.Items[(*item).GetId()]; ok {
-		if (*oldItem).GetVersion() != (*item).GetVersion() {
-			return ErrVersionGone
+	id := (*item).GetId()
+	version := (*item).GetVersion()
+
+	// Check if exists
+	current := f.head.Load()
+
+	for current != nil {
+		currentItem := current.item.Load()
+		if (*currentItem).GetId() == id {
+			// Found, check version
+			if (*currentItem).GetVersion() != version {
+				return ErrVersionGone
+			}
+
+			// Update
+			(*item).SetVersion(version + 1)
+			current.item.Store(item)
+			return nil
+
 		}
+		current = current.next.Load()
 	}
 
+	// Not found, insert new
 	(*item).SetVersion((*item).GetVersion() + 1)
-	f.Items[(*item).GetId()] = item // todo: copy?
+	newNode := &node[T]{}
+	newNode.item.Store(item)
+	newNode.next.Store(f.head.Load())
+
+	f.head.Store(newNode)
+
 	return nil
 }
 
 func (f *StoreMemory[T]) Get(ctx context.Context, id string) (*T, error) {
-	f.mutex.RLock()
-	defer f.mutex.RUnlock()
-
-	item, ok := f.Items[id]
-	if !ok {
-		return nil, nil
+	// No lock needed for readers
+	current := f.head.Load()
+	for current != nil {
+		currentItem := current.item.Load()
+		if (*currentItem).GetId() == id {
+			// Copy
+			var newItem *T
+			remarshal(currentItem, &newItem)
+			return newItem, nil
+		}
+		current = current.next.Load()
 	}
 
-	// Copy
-	var newItem *T
-	remarshal(item, &newItem)
-
-	return newItem, nil
+	return nil, nil
 }
 
 func remarshal(in, out any) {
@@ -73,6 +111,26 @@ func (f *StoreMemory[T]) Delete(ctx context.Context, id string) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	delete(f.Items, id)
+	current := f.head.Load()
+	var prev *node[T]
+
+	for current != nil {
+		currentItem := current.item.Load()
+		if (*currentItem).GetId() == id {
+			// Found, remove
+			next := current.next.Load()
+			if prev == nil {
+				// Removing head
+				f.head.Store(next)
+			} else {
+				// Removing from middle/end
+				prev.next.Store(next)
+			}
+			return nil
+		}
+		prev = current
+		current = current.next.Load()
+	}
+
 	return nil
 }
