@@ -134,6 +134,45 @@ func SuitePersistencer(p store.Storer[TestItem], t *testing.T) {
 		w.Wait()
 	})
 
+	t.Run("List with filters", func(t *testing.T) {
+		// Insert some items to filter
+		itemF1 := &TestItem{Id: store.NewId("f1"), Title: "Alpha", Description: "X"}
+		itemF2 := &TestItem{Id: store.NewId("f2"), Title: "Beta", Description: "Y"}
+		itemF3 := &TestItem{Id: store.NewId("f3"), Title: "Gamma", Description: "X"}
+		itemF4 := &TestItem{Id: store.NewId("f4"), Title: "Alpha", Description: "Y"}
+
+		AssertNil(p.Put(ctx, itemF1))
+		AssertNil(p.Put(ctx, itemF2))
+		AssertNil(p.Put(ctx, itemF3))
+		AssertNil(p.Put(ctx, itemF4))
+
+		// Filter by Description: X
+		res1, err1 := p.List(ctx, "description", "X")
+		AssertNil(err1)
+		AssertEqual(len(res1), 2)
+
+		// Filter by Title: Alpha AND Description: Y
+		res2, err2 := p.List(ctx, "title", "Alpha", "description", "Y")
+		AssertNil(err2)
+		AssertEqual(len(res2), 1)
+		AssertEqual(res2[0].GetId(), "f4")
+
+		// Filter with non-existent field or value
+		res3, err3 := p.List(ctx, "title", "DoesNotExist")
+		AssertNil(err3)
+		AssertEqual(len(res3), 0)
+
+		// Filter with odd number of args
+		_, errOdd := p.List(ctx, "title")
+		AssertNotNil(errOdd)
+
+		// Cleanup
+		p.Delete(ctx, "f1")
+		p.Delete(ctx, "f2")
+		p.Delete(ctx, "f3")
+		p.Delete(ctx, "f4")
+	})
+
 }
 
 func SuiteOptimisticLocking(p store.Storer[TestItem], t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -58,11 +59,20 @@ type FindQuery struct {
 	Reverse bool                   `json:"reverse,omitempty"`
 }
 
-func (p *StoreInception[T]) List(ctx context.Context) ([]*T, error) {
+func (p *StoreInception[T]) List(ctx context.Context, filters ...string) ([]*T, error) {
+	if len(filters)%2 != 0 {
+		return nil, fmt.Errorf("List: odd number of filter arguments")
+	}
+
 	query := FindQuery{
 		Filter: map[string]interface{}{},
 		Limit:  -1,
 	}
+	
+	for i := 0; i < len(filters); i += 2 {
+		query.Filter[filters[i]] = filters[i+1]
+	}
+
 	payload, err := json.Marshal(query)
 	if err != nil {
 		return nil, err

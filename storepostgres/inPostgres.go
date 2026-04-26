@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/holacloud/store"
@@ -100,9 +101,27 @@ func parseConnection(connection string) map[string]string {
 	return result
 }
 
-func (f *StorePostgres[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StorePostgres[T]) List(ctx context.Context, filters ...string) ([]*T, error) {
+	if len(filters)%2 != 0 {
+		return nil, fmt.Errorf("List: odd number of filter arguments")
+	}
 
-	rows, err := f.db.QueryContext(ctx, `SELECT id, record, version FROM "`+f.table+`";`)
+	var rows *sql.Rows
+	var err error
+
+	if len(filters) > 0 {
+		args := make([]interface{}, 0, len(filters)/2)
+		var conditions []string
+		for i := 0; i < len(filters); i += 2 {
+			args = append(args, filters[i+1])
+			conditions = append(conditions, fmt.Sprintf("record->>'%s' = $%d", filters[i], len(args)))
+		}
+		query := `SELECT id, record, version FROM "` + f.table + `" WHERE ` + strings.Join(conditions, " AND ") + `;`
+		rows, err = f.db.QueryContext(ctx, query, args...)
+	} else {
+		rows, err = f.db.QueryContext(ctx, `SELECT id, record, version FROM "`+f.table+`";`)
+	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -31,8 +31,8 @@ func NewStoreCached[T Identifier](persistence Storer[T], cache Storer[T]) (*Stor
 	}, nil
 }
 
-func (s *StoreCached[T]) List(ctx context.Context) ([]*T, error) {
-	return s.cache.List(ctx)
+func (s *StoreCached[T]) List(ctx context.Context, keys ...string) ([]*T, error) {
+	return s.cache.List(ctx, keys...)
 }
 
 func (s *StoreCached[T]) Put(ctx context.Context, item *T) error {

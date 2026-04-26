@@ -34,7 +34,11 @@ func NewStoreDiskGzip[T Identifier](dataDir string) (*StoreDiskGzip[T], error) {
 	}, nil
 }
 
-func (f *StoreDiskGzip[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreDiskGzip[T]) List(ctx context.Context, filters ...string) ([]*T, error) {
+	if len(filters)%2 != 0 {
+		return nil, fmt.Errorf("List: odd number of filter arguments")
+	}
+
 	entries, err := os.ReadDir(f.dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("reading directory: %s", err.Error())
@@ -69,7 +73,10 @@ func (f *StoreDiskGzip[T]) List(ctx context.Context) ([]*T, error) {
 		}
 		gr.Close()
 		file.Close()
-		result = append(result, item)
+
+		if matchFilters(item, filters) {
+			result = append(result, item)
+		}
 	}
 
 	return result, nil
