@@ -38,35 +38,43 @@ func NewStoreDisk[T Identifier](dataDir string) (*StoreDisk[T], error) {
 	}, nil
 }
 
-func (f *StoreDisk[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreDisk[T]) List(ctx context.Context) (<-chan *T, error) {
 	// Read directory directly
 	entries, err := os.ReadDir(f.dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("reading directory: %s", err.Error())
 	}
 
-	var result []*T
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.EqualFold(".json", path.Ext(entry.Name())) {
-			continue
-		}
+	result := make(chan *T, 100)
+	go func() {
+		defer close(result)
 
-		filename := path.Join(f.dataDir, entry.Name())
-		file, err := os.Open(filename)
-		if err != nil {
-			log.Printf("error opening '%s': %s\n", filename, err.Error())
-			continue
-		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.EqualFold(".json", path.Ext(entry.Name())) {
+				continue
+			}
 
-		var item *T
-		if err := json.NewDecoder(file).Decode(&item); err != nil {
-			log.Printf("error decoding '%s': %s\n", filename, err.Error())
+			filename := path.Join(f.dataDir, entry.Name())
+			file, err := os.Open(filename)
+			if err != nil {
+				log.Printf("error opening '%s': %s\n", filename, err.Error())
+				continue
+			}
+
+			var item *T
+			if err := json.NewDecoder(file).Decode(&item); err != nil {
+				log.Printf("error decoding '%s': %s\n", filename, err.Error())
+				file.Close()
+				continue
+			}
 			file.Close()
-			continue
+			select {
+			case <-ctx.Done():
+				return
+			case result <- item:
+			}
 		}
-		file.Close()
-		result = append(result, item)
-	}
+	}()
 
 	return result, nil
 }

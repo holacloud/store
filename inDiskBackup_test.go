@@ -63,8 +63,9 @@ func TestStoreDiskBackup_SyncsOnCreate(t *testing.T) {
 	backup, err := store.NewStoreDisk[testutils.TestItem](dir)
 	biff.AssertNil(err)
 
-	list, err := backup.List(ctx)
+	items, err := backup.List(ctx)
 	biff.AssertNil(err)
+	list := testutils.ListAll(items)
 	biff.AssertEqual(len(list), 1)
 	biff.AssertEqual(list[0].GetId(), "existing")
 	biff.AssertEqual(list[0].Title, "existing-title")
@@ -112,8 +113,9 @@ func TestStoreDiskBackup_PersistsLatestState(t *testing.T) {
 	backup, err := store.NewStoreDisk[testutils.TestItem](dir)
 	biff.AssertNil(err)
 
-	list, err := backup.List(ctx)
+	items, err := backup.List(ctx)
 	biff.AssertNil(err)
+	list := testutils.ListAll(items)
 	biff.AssertEqual(len(list), 1)
 	biff.AssertEqual(list[0].GetId(), "1")
 	biff.AssertEqual(list[0].Title, "first-updated")

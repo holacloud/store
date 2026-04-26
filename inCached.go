@@ -21,7 +21,7 @@ func NewStoreCached[T Identifier](persistence Storer[T], cache Storer[T]) (*Stor
 		return nil, err
 	}
 
-	for _, item := range items {
+	for item := range items {
 		_ = cache.Put(context.Background(), item)
 	}
 
@@ -31,7 +31,7 @@ func NewStoreCached[T Identifier](persistence Storer[T], cache Storer[T]) (*Stor
 	}, nil
 }
 
-func (s *StoreCached[T]) List(ctx context.Context) ([]*T, error) {
+func (s *StoreCached[T]) List(ctx context.Context) (<-chan *T, error) {
 	return s.cache.List(ctx)
 }
 

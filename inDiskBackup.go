@@ -54,7 +54,7 @@ func NewStoreDiskBackup[T Identifier](primary Storer[T], backupDir string) (*Sto
 	return result, nil
 }
 
-func (s *StoreDiskBackup[T]) List(ctx context.Context) ([]*T, error) {
+func (s *StoreDiskBackup[T]) List(ctx context.Context) (<-chan *T, error) {
 	return s.primary.List(ctx)
 }
 
@@ -167,8 +167,8 @@ func (s *StoreDiskBackup[T]) syncAll(ctx context.Context) error {
 		return fmt.Errorf("initial backup list primary: %w", err)
 	}
 
-	primaryIds := make(map[string]struct{}, len(items))
-	for _, item := range items {
+	primaryIds := make(map[string]struct{})
+	for item := range items {
 		if item == nil {
 			continue
 		}
@@ -186,7 +186,7 @@ func (s *StoreDiskBackup[T]) syncAll(ctx context.Context) error {
 		return fmt.Errorf("initial backup list disk: %w", err)
 	}
 
-	for _, backupItem := range backupItems {
+	for backupItem := range backupItems {
 		if backupItem == nil {
 			continue
 		}

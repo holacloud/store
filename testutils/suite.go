@@ -26,13 +26,22 @@ type SubItem struct {
 	Field2 string `json:"field2"`
 }
 
+func ListAll[T store.Identifier](items <-chan *T) []*T {
+	result := []*T{}
+	for item := range items {
+		result = append(result, item)
+	}
+	return result
+}
+
 func SuitePersistencer(p store.Storer[TestItem], t *testing.T) {
 
 	ctx := context.Background()
 
 	t.Run("List empty", func(t *testing.T) {
-		listResult, listErr := p.List(ctx)
+		items, listErr := p.List(ctx)
 		AssertNil(listErr)
+		listResult := ListAll(items)
 		AssertEqual(len(listResult), 0)
 	})
 
@@ -55,9 +64,10 @@ func SuitePersistencer(p store.Storer[TestItem], t *testing.T) {
 	})
 
 	t.Run("List one", func(t *testing.T) {
-		listResult, listErr := p.List(ctx)
+		items, listErr := p.List(ctx)
 
 		AssertNil(listErr)
+		listResult := ListAll(items)
 		AssertEqual(len(listResult), 1)
 		AssertEqual(listResult[0].Id, item1.Id)
 	})
@@ -69,7 +79,8 @@ func SuitePersistencer(p store.Storer[TestItem], t *testing.T) {
 		AssertNil(putErr)
 
 		t.Run("Check list length = 1 and value is one", func(t *testing.T) {
-			listResult, _ := p.List(ctx)
+			items, _ := p.List(ctx)
+			listResult := ListAll(items)
 			AssertEqual(len(listResult), 1)
 			AssertEqual(listResult[0].Id, item1.Id)
 		})
@@ -86,9 +97,10 @@ func SuitePersistencer(p store.Storer[TestItem], t *testing.T) {
 		AssertNil(putErr)
 
 		t.Run("Check list length = 2", func(t *testing.T) {
-			listResult, listErr := p.List(ctx)
+			items, listErr := p.List(ctx)
 
 			AssertNil(listErr)
+			listResult := ListAll(items)
 			AssertEqual(len(listResult), 2)
 		})
 
@@ -99,9 +111,10 @@ func SuitePersistencer(p store.Storer[TestItem], t *testing.T) {
 		AssertNil(err)
 
 		t.Run("Check list length = 1 and value is two", func(t *testing.T) {
-			listResult, listErr := p.List(ctx)
+			items, listErr := p.List(ctx)
 
 			AssertNil(listErr)
+			listResult := ListAll(items)
 			AssertEqual(len(listResult), 1)
 			AssertEqual(listResult[0].Id, item2.Id)
 		})
