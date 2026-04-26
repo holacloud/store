@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -27,7 +28,11 @@ func NewStoreMemory[T Identifier]() *StoreMemory[T] {
 	return &StoreMemory[T]{}
 }
 
-func (f *StoreMemory[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreMemory[T]) List(ctx context.Context, filters ...string) ([]*T, error) {
+	if len(filters)%2 != 0 {
+		return nil, fmt.Errorf("List: odd number of filter arguments")
+	}
+
 	// No lock needed for readers
 	var result []*T
 
@@ -36,9 +41,11 @@ func (f *StoreMemory[T]) List(ctx context.Context) ([]*T, error) {
 		// safe copy
 		itemPtr := current.item.Load()
 		if itemPtr != nil { // Should be non-nil generally
-			var newItem *T
-			remarshal(itemPtr, &newItem)
-			result = append(result, newItem)
+			if matchFilters(itemPtr, filters) {
+				var newItem *T
+				remarshal(itemPtr, &newItem)
+				result = append(result, newItem)
+			}
 		}
 
 		current = current.next.Load()

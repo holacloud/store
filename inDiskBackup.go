@@ -54,8 +54,8 @@ func NewStoreDiskBackup[T Identifier](primary Storer[T], backupDir string) (*Sto
 	return result, nil
 }
 
-func (s *StoreDiskBackup[T]) List(ctx context.Context) ([]*T, error) {
-	return s.primary.List(ctx)
+func (s *StoreDiskBackup[T]) List(ctx context.Context, keys ...string) ([]*T, error) {
+	return s.primary.List(ctx, keys...)
 }
 
 func (s *StoreDiskBackup[T]) Put(ctx context.Context, item *T) error {

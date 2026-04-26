@@ -38,7 +38,11 @@ func NewStoreDisk[T Identifier](dataDir string) (*StoreDisk[T], error) {
 	}, nil
 }
 
-func (f *StoreDisk[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreDisk[T]) List(ctx context.Context, filters ...string) ([]*T, error) {
+	if len(filters)%2 != 0 {
+		return nil, fmt.Errorf("List: odd number of filter arguments")
+	}
+
 	// Read directory directly
 	entries, err := os.ReadDir(f.dataDir)
 	if err != nil {
@@ -65,7 +69,10 @@ func (f *StoreDisk[T]) List(ctx context.Context) ([]*T, error) {
 			continue
 		}
 		file.Close()
-		result = append(result, item)
+		
+		if matchFilters(item, filters) {
+			result = append(result, item)
+		}
 	}
 
 	return result, nil

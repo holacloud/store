@@ -2,6 +2,7 @@ package storemongo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/holacloud/store"
@@ -55,9 +56,17 @@ func New[T store.Identifier](collectionName, connection string) (*StoreMongo[T],
 	}, nil
 }
 
-func (f *StoreMongo[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreMongo[T]) List(ctx context.Context, filters ...string) ([]*T, error) {
+	if len(filters)%2 != 0 {
+		return nil, fmt.Errorf("List: odd number of filter arguments")
+	}
 
-	cur, err := f.database.Collection(f.collectionName).Find(ctx, bson.M{})
+	filterMap := bson.M{}
+	for i := 0; i < len(filters); i += 2 {
+		filterMap[filters[i]] = filters[i+1]
+	}
+
+	cur, err := f.database.Collection(f.collectionName).Find(ctx, filterMap)
 	if err != nil {
 		return nil, err
 	}
