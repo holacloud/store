@@ -55,24 +55,31 @@ func New[T store.Identifier](collectionName, connection string) (*StoreMongo[T],
 	}, nil
 }
 
-func (f *StoreMongo[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StoreMongo[T]) List(ctx context.Context) (<-chan *T, error) {
 
 	cur, err := f.database.Collection(f.collectionName).Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
-	defer cur.Close(context.Background())
 
-	result := []*T{}
+	result := make(chan *T, 100)
+	go func() {
+		defer close(result)
+		defer cur.Close(context.Background())
 
-	for cur.Next(context.Background()) {
-		var item *T
-		err := cur.Decode(&item)
-		if err != nil {
-			return nil, err
+		for cur.Next(ctx) {
+			var item *T
+			err := cur.Decode(&item)
+			if err != nil {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case result <- item:
+			}
 		}
-		result = append(result, item)
-	}
+	}()
 
 	return result, nil
 }

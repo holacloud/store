@@ -40,8 +40,9 @@ func TestStoreDisk_Load(t *testing.T) {
 	p2, err := store.NewStoreCached[testutils.TestItem](disk2, nil)
 	biff.AssertNil(err)
 
-	result, err := p2.List(context.Background())
+	items, err := p2.List(context.Background())
 	biff.AssertNil(err)
+	result := testutils.ListAll(items)
 	// fmt.Println(result) // remove print
 
 	// Verify item is in the list

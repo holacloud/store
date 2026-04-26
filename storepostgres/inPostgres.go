@@ -100,31 +100,40 @@ func parseConnection(connection string) map[string]string {
 	return result
 }
 
-func (f *StorePostgres[T]) List(ctx context.Context) ([]*T, error) {
+func (f *StorePostgres[T]) List(ctx context.Context) (<-chan *T, error) {
 
 	rows, err := f.db.QueryContext(ctx, `SELECT id, record, version FROM "`+f.table+`";`)
 	if err != nil {
 		return nil, err
 	}
 
-	result := []*T{}
-	for rows.Next() {
-		id := []byte{}
-		record := []byte{}
-		version := int64(0)
-		err := rows.Scan(&id, &record, &version)
-		if err != nil {
-			return nil, err
-		}
+	result := make(chan *T, 100)
+	go func() {
+		defer close(result)
+		defer rows.Close()
 
-		var item *T
-		err = json.Unmarshal(record, &item)
-		if err != nil {
-			return nil, err
+		for rows.Next() {
+			id := []byte{}
+			record := []byte{}
+			version := int64(0)
+			err := rows.Scan(&id, &record, &version)
+			if err != nil {
+				return
+			}
+
+			var item *T
+			err = json.Unmarshal(record, &item)
+			if err != nil {
+				return
+			}
+			(*item).SetVersion(version)
+			select {
+			case <-ctx.Done():
+				return
+			case result <- item:
+			}
 		}
-		(*item).SetVersion(version)
-		result = append(result, item)
-	}
+	}()
 
 	return result, nil
 }

@@ -58,7 +58,7 @@ type FindQuery struct {
 	Reverse bool                   `json:"reverse,omitempty"`
 }
 
-func (p *StoreInception[T]) List(ctx context.Context) ([]*T, error) {
+func (p *StoreInception[T]) List(ctx context.Context) (<-chan *T, error) {
 	query := FindQuery{
 		Filter: map[string]interface{}{},
 		Limit:  -1,
@@ -80,26 +80,34 @@ func (p *StoreInception[T]) List(ctx context.Context) ([]*T, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
 		return nil, errors.New("list: unexpected HTTP status: " + resp.Status)
 	}
 
-	var items []*T
+	items := make(chan *T, 100)
 	decoder := json.NewDecoder(resp.Body)
-	// InceptionDB returns a stream of objects, one per line (JSON Lines)
-	for {
-		var item *T
-		err := decoder.Decode(&item)
-		if err == io.EOF {
-			break
+	go func() {
+		defer close(items)
+		defer resp.Body.Close()
+
+		// InceptionDB returns a stream of objects, one per line (JSON Lines)
+		for {
+			var item *T
+			err := decoder.Decode(&item)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case items <- item:
+			}
 		}
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
+	}()
 	return items, nil
 }
 

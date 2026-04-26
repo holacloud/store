@@ -27,22 +27,30 @@ func NewStoreMemory[T Identifier]() *StoreMemory[T] {
 	return &StoreMemory[T]{}
 }
 
-func (f *StoreMemory[T]) List(ctx context.Context) ([]*T, error) {
-	// No lock needed for readers
-	var result []*T
+func (f *StoreMemory[T]) List(ctx context.Context) (<-chan *T, error) {
+	result := make(chan *T, 100)
 
-	current := f.head.Load()
-	for current != nil {
-		// safe copy
-		itemPtr := current.item.Load()
-		if itemPtr != nil { // Should be non-nil generally
-			var newItem *T
-			remarshal(itemPtr, &newItem)
-			result = append(result, newItem)
+	go func() {
+		defer close(result)
+
+		// No lock needed for readers
+		current := f.head.Load()
+		for current != nil {
+			// safe copy
+			itemPtr := current.item.Load()
+			if itemPtr != nil { // Should be non-nil generally
+				var newItem *T
+				remarshal(itemPtr, &newItem)
+				select {
+				case <-ctx.Done():
+					return
+				case result <- newItem:
+				}
+			}
+
+			current = current.next.Load()
 		}
-
-		current = current.next.Load()
-	}
+	}()
 
 	return result, nil
 }

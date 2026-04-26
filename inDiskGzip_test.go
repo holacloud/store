@@ -43,8 +43,9 @@ func TestStoreDiskGzip_Load(t *testing.T) {
 	p2, err := store.NewStoreCached[testutils.TestItem](disk2, nil)
 	biff.AssertNil(err)
 
-	result, err := p2.List(context.Background())
+	items, err := p2.List(context.Background())
 	biff.AssertNil(err)
+	result := testutils.ListAll(items)
 	biff.AssertEqual(len(result), 1)
 	biff.AssertEqual(result[0].Title, "test-gzip")
 
@@ -71,7 +72,8 @@ func TestStoreDiskGzip_NotRetroCompatibleWithJSON(t *testing.T) {
 	biff.AssertNil(err)
 	biff.AssertNil(item)
 
-	list, err := gzipStore.List(context.Background())
+	items, err := gzipStore.List(context.Background())
 	biff.AssertNil(err)
+	list := testutils.ListAll(items)
 	biff.AssertEqual(len(list), 0)
 }
